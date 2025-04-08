@@ -5,70 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Favicon Extractor</title>
     <style>
-      #favicon-container {
-        margin-top: 20px;
-        display: flex;
-        justify-content: center; /* Center the content */
-        align-items: center; /* Vertically center the content */
-        min-height: 100vh; /* Ensure full viewport height */
-        background-color: #ffffff; /* Default background color: white */
-      }
-      img {
-        max-width: 100px;
-        max-height: 100px;
-        border-radius: 4px;
-      }
-      body {
-        margin: 0; /* Remove default body margin */
-      }
+        #favicon-container {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #ffffff;
+        }
+        img {
+            max-width: 100px;
+            max-height: 100px;
+            border-radius: 4px;
+        }
+        body {
+            margin: 0;
+        }
     </style>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 </head>
 <body>
-    <div id="favicon-container"></div>
-
+    <div id="favicon-container">
+        <img id="favicon" src="" alt="Favicon">
+    </div>
     <script>
-    /**
-     * Asynchronously fetches an image from a URL, with CORS handling.
-     *
-     * @param {string} url - The URL to fetch.
-     * @returns {Promise<HTMLImageElement|null>} - A Promise that resolves to an Image object or null on error.
-     */
-    async function fetchImage(url) {
-        try {
-            const response = await fetch(url, {
-                mode: 'cors',
-            });
-            if (!response.ok) {
-                return null;
-            }
-            const blob = await response.blob();
-            const imageUrl = URL.createObjectURL(blob);
-            const img = $("<img>");
-            img.attr("src", imageUrl);
+    const DEFAULT_FALLBACK_URL = 'https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.sharecuts.co/&size=16';
 
-            await new Promise((resolve, reject) => {
-                img.on('load', resolve);
-                img.on('error', reject);
-            });
-            return img[0]; // Return the underlying HTMLImageElement
+    async function isErrorImage(img) {
+        const response = await fetch('error_favicon.png');
+        if (!response.ok) return false;
+        const blob = await response.blob();
+        const reader = new FileReader();
+        const promise = new Promise((resolve) => {
+            reader.onloadend = () => resolve(reader.result);
+        });
+        reader.readAsDataURL(blob);
+        const errorDataUrl = await promise;
 
-        } catch (error) {
-            console.error('Error fetching image:', error);
-            return null;
-        }
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const size = 64;
+        canvas.width = size;
+        canvas.height = size;
+        ctx.drawImage(img, 0, 0, size, size);
+        const imgData = canvas.toDataURL();
+
+        const errorCanvas = document.createElement('canvas');
+        const errorCtx = errorCanvas.getContext('2d');
+        errorCanvas.width = size;
+        errorCanvas.height = size;
+        const errorImg = new Image;
+        errorImg.src = errorDataUrl;
+        await new Promise(resolve => errorImg.onload = resolve);
+        errorCtx.drawImage(errorImg, 0, 0, size, size);
+        const errorImageData = errorCanvas.toDataURL();
+
+        return imgData === errorImageData;
     }
 
-
-
-    /**
-     * Generates an SVG data URL for the first letter of the domain.
-     * @param {string} domain - The domain name.
-     * @param {number} size - The size of the SVG.
-     * @param {string} bgcolor - The background color of the SVG.
-     * @param {string} textcolor - The text color of the SVG.
-     * @returns {string} - A data URL containing the SVG.
-     */
     function generateFallbackSVG(domain, size = 64, bgcolor = '#ffffff', textcolor = '#000000') {
         const firstLetter = domain.charAt(0).toUpperCase();
         const fontSize = size * 0.7;
@@ -89,59 +82,40 @@
         return `data:image/svg+xml;utf8,${encodeURIComponent(svgContent)}`;
     }
 
-
     window.onload = async function() {
-        const container = $('#favicon-container');
-        container.html(''); // Clear container
+        const container = document.getElementById('favicon-container');
+        const faviconImg = document.getElementById('favicon');
 
-        // Get the query parameters
         const urlParams = new URLSearchParams(window.location.search);
         const domain = urlParams.get('domain');
-        const fallbackUrl = urlParams.get('fallback');
-        let bgcolor = urlParams.get('bgcolor');
-        let textcolor = urlParams.get('textcolor');
-
-        // Set default colors, and only override if query parameters are provided.
-        const defaultBgColor = '#ffffff';  // White
-        const defaultTextColor = '#000000'; // Black
-
-        if (bgcolor === null || bgcolor === undefined || bgcolor === "") {
-            bgcolor = defaultBgColor;
-        }
-        if (textcolor === null || textcolor === undefined || textcolor === "") {
-            textcolor = defaultTextColor;
-        }
-
+        const fallbackUrl = urlParams.get('fallback') || DEFAULT_FALLBACK_URL;
+        const bgcolor = urlParams.get('bgcolor') || '#ffffff';
+        const textcolor = urlParams.get('textcolor') || '#000000';
 
         if (!domain) {
-            return; // Don't do anything if there's no domain
-        }
-
-        // 1. Try to get the image from the provided URL
-        // Use DuckDuckGo's favicon service:
-        let faviconUrl = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
-        const fetchedImage = await fetchImage(faviconUrl);
-        if (fetchedImage) {
-            container.append(fetchedImage);
-            return; // If we get the image, we're done.
-        }
-
-        // 2. If no image, try to use the fallback URL
-        let fallbackImage = null;
-        if (fallbackUrl) {
-            fallbackImage = await fetchImage(fallbackUrl); // Use fetchImage
-        }
-
-        // 3. If no favicon image, and we have a valid fallback image, use that.
-        if (fallbackImage) {
-            container.append(fallbackImage);
+            const svgDataUrl = generateFallbackSVG("invalid", 64, bgcolor, textcolor);
+            faviconImg.src = svgDataUrl;
             return;
         }
 
-        // 4. If no favicon and no/invalid fallback, generate the SVG
-        const svgDataUrl = generateFallbackSVG(domain, 64, bgcolor, textcolor);
-        const svgImg = $("<img>").attr("src", svgDataUrl);
-        container.append(svgImg);
+        const faviconUrl = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+        faviconImg.onload = async () => {
+            if (await isErrorImage(faviconImg)) {
+                faviconImg.onerror = null;
+                if (fallbackUrl) {
+                    faviconImg.src = fallbackUrl;
+                } else {
+                    const svgDataUrl = generateFallbackSVG(domain, 64, bgcolor, textcolor);
+                    faviconImg.src = svgDataUrl;
+                }
+            }
+        };
+
+        faviconImg.onerror = () => {
+            const svgDataUrl = generateFallbackSVG(domain, 64, bgcolor, textcolor);
+            faviconImg.src = svgDataUrl;
+        };
+        faviconImg.src = faviconUrl;
     };
     </script>
 </body>
