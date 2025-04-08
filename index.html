@@ -22,6 +22,7 @@
         margin: 0; /* Remove default body margin */
       }
     </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 </head>
 <body>
     <div id="favicon-container"></div>
@@ -43,13 +44,15 @@
             }
             const blob = await response.blob();
             const imageUrl = URL.createObjectURL(blob);
-            const img = new Image();
-            img.src = imageUrl;
+            const img = $("<img>");
+            img.attr("src", imageUrl);
+
             await new Promise((resolve, reject) => {
-                img.onload = resolve;
-                img.onerror = reject;
+                img.on('load', resolve);
+                img.on('error', reject);
             });
-            return img;
+            return img[0]; // Return the underlying HTMLImageElement
+
         } catch (error) {
             console.error('Error fetching image:', error);
             return null;
@@ -88,8 +91,8 @@
 
 
     window.onload = async function() {
-        const container = document.getElementById('favicon-container');
-        container.innerHTML = ''; // Clear container
+        const container = $('#favicon-container');
+        container.html(''); // Clear container
 
         // Get the query parameters
         const urlParams = new URLSearchParams(window.location.search);
@@ -115,28 +118,29 @@
         }
 
         // 1. Try to get the image from the provided URL
-        let faviconUrl = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+        let faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}.ico`;
         const fetchedImage = await fetchImage(faviconUrl);
         if (fetchedImage) {
-            container.appendChild(fetchedImage);
+            container.append(fetchedImage);
             return; // If we get the image, we're done.
         }
 
         // 2. If no image, try to use the fallback URL
+        let fallbackImage = null;
         if (fallbackUrl) {
-            const fallbackImage = await fetchImage(fallbackUrl); // Use fetchImage
-            if (fallbackImage) {
-                container.appendChild(fallbackImage);
-                return; // If we get the fallback image, we're done.
-            }
-            // If the fallback image fails to load, we fall through to the SVG
+            fallbackImage = await fetchImage(fallbackUrl); // Use fetchImage
         }
 
-        // 3. If no image and no/invalid fallback, generate the SVG
+        // 3. If no favicon image, and we have a valid fallback image, use that.
+        if (fallbackImage) {
+            container.append(fallbackImage);
+            return;
+        }
+
+        // 4. If no favicon and no/invalid fallback, generate the SVG
         const svgDataUrl = generateFallbackSVG(domain, 64, bgcolor, textcolor);
-        const svgImg = new Image();
-        svgImg.src = svgDataUrl;
-        container.appendChild(svgImg);
+        const svgImg = $("<img>").attr("src", svgDataUrl);
+        container.append(svgImg);
     };
     </script>
 </body>
