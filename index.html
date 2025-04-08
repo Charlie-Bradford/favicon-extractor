@@ -28,41 +28,51 @@
 
     <script>
     /**
-     * Asynchronously fetches a favicon from Google's favicon service.
+     * Asynchronously fetches a favicon from a URL, with CORS handling.
+     *
+     * @param {string} url - The URL to fetch.
+     * @returns {Promise<HTMLImageElement|null>} - A Promise that resolves to an Image object or null on error.
+     */
+    async function fetchImage(url) {
+        try {
+            const response = await fetch(url, {
+                mode: 'cors', // Explicitly set the mode to 'cors'
+            });
+            if (!response.ok) {
+                return null;
+            }
+            const blob = await response.blob();
+            const imageUrl = URL.createObjectURL(blob);
+            const img = new Image();
+            img.src = imageUrl;
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+            });
+            return img;
+        } catch (error) {
+            console.error('Error fetching image:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Asynchronously fetches a favicon from DuckDuckGo.
      *
      * @param {string} domain - The domain name (e.g., "example.com").
      * @returns {Promise<HTMLImageElement|null>} - A Promise that resolves to an Image object
      * or null on error.
      */
-    async function getFaviconWithGoogle(domain) {
+    async function getFaviconWithDuckDuckGo(domain) {
         try {
-            // Construct the Google favicon service URL
+            // Construct the DuckDuckGo favicon service URL
             const faviconUrl = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
-
-            // Fetch the favicon
-            const response = await fetch(faviconUrl);
-            if (!response.ok) {
-                return null; // Return null on error, don't throw
-            }
-            const blob = await response.blob();
-            const imageUrl = URL.createObjectURL(blob);
-
-            const img = new Image();
-            img.src = imageUrl;
-
-            await new Promise((resolve, reject) => {
-                img.onload = resolve;
-                img.onerror = reject;
-            });
-
-            return img;
-
+            return await fetchImage(faviconUrl); // Use the fetchImage function
         } catch (error) {
             console.error(`Error fetching favicon for ${domain}:`, error);
-            return null; // Return null on fetch error
+            return null;
         }
     }
-
 
     /**
      * Generates an SVG data URL for the first letter of the domain.
@@ -121,7 +131,7 @@
         }
 
         // 1. Try to get the favicon
-        const favicon = await getFaviconWithGoogle(domain);
+        const favicon = await getFaviconWithDuckDuckGo(domain);
         if (favicon) {
             container.appendChild(favicon);
             return; // If we get the favicon, we're done.
@@ -129,14 +139,12 @@
 
         // 2. If no favicon, try to use the fallback URL
         if (fallbackUrl) {
-            try {
-                const fallbackImage = await loadImage(fallbackUrl);
+            const fallbackImage = await fetchImage(fallbackUrl); // Use fetchImage
+            if (fallbackImage) {
                 container.appendChild(fallbackImage);
                 return; // If we get the fallback image, we're done.
-            } catch (e) {
-                console.error("Error loading fallback image:", e);
-                // If the fallback image fails to load, we fall through to the SVG
             }
+            // If the fallback image fails to load, we fall through to the SVG
         }
 
         // 3. If no favicon and no/invalid fallback, generate the SVG
@@ -145,23 +153,6 @@
         svgImg.src = svgDataUrl;
         container.appendChild(svgImg);
     };
-
-    /**
-     * Loads an image from a given URL and returns a Promise.
-     * @param {string} url
-     * @returns {Promise<HTMLImageElement>}
-     */
-    function loadImage(url) {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.src = url;
-            img.onload = () => resolve(img);
-            img.onerror = (err) => {
-                console.error("Error loading image:", url, err);
-                reject(err); // Reject the promise on error
-            };
-        });
-    }
     </script>
 </body>
 </html>
