@@ -4,22 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Favicon Extractor</title>
-    <script src="https://unpkg.com/image-hash"></script>
     <style>
-      #favicon-container {
-        margin-top: 20px;
+      body {
+        margin: 0; /* Remove default body margin */
         display: flex;
-        flex-wrap: wrap;
-        gap: 20px;
-      }
-      .favicon-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+        justify-content: center; /* Center horizontally */
+        align-items: center; /* Center vertically */
+        min-height: 100vh; /* Ensure full viewport height */
       }
       img {
-        max-width: 100px;
-        max-height: 100px;
+        /* max-width and max-height are set by the size parameter, or default */
         border: 1px solid #ccc;
         border-radius: 4px;
       }
@@ -28,21 +22,22 @@
 <body>
     <div id="favicon-container"></div>
     <script>
-    const DEFAULT_FALLBACK_URL = ''; // Start with empty string, will be set dynamically
+    const DEFAULT_FALLBACK_URL = ''; // Start with empty string
 
     /**
      * Asynchronously fetches a favicon from Google's favicon service,
-     * replacing a specific error image with a fallback.
+     * optionally with a specified size, and handles fallback.
      *
      * @param {string} domain - The domain name (e.g., "example.com").
      * @param {string} fallbackPath - Path to the fallback image.
+     * @param {number} size - The size of the favicon (e.g., 16, 32, 64).
      * @returns {Promise<HTMLImageElement|null>} - A Promise that resolves to an Image object
      * or null on error.
      */
-    async function getFaviconWithGoogle(domain, fallbackPath) {
+    async function getFaviconWithGoogle(domain, fallbackPath, size = 64) {  // Default size is 64
         try {
-            // Construct the Google favicon service URL
-            const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}`;
+            // Construct the Google favicon service URL with size parameter
+            const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&size=${size}`;
 
             // Fetch the favicon
             const response = await fetch(faviconUrl);
@@ -54,26 +49,27 @@
 
             const img = new Image();
             img.src = imageUrl;
+            img.style.width = `${size}px`;  // Set width and height.
+            img.style.height = `${size}px`;
 
             await new Promise((resolve, reject) => {
                 img.onload = resolve;
                 img.onerror = reject;
             });
 
-            // Check for the specific error image.  We load the error image *once*
-            // and keep it in a variable, rather than loading it repeatedly.
+            // Check for the specific error image.
             if (await isErrorImage(img)) {
                 console.log(`Detected error favicon for ${domain}, using fallback.`);
-                return await loadImage(fallbackPath); // Use the function to load.
+                const fallbackImage = await loadImage(fallbackPath, size); // Pass size to loadImage
+                return fallbackImage;
             }
             return img;
 
         } catch (error) {
             console.error(`Error fetching favicon for ${domain}:`, error);
-            return await loadImage(fallbackPath); // Use the function to load.
+            return await loadImage(fallbackPath, size); // Pass size to loadImage
         }
     }
-
 
     /**
      * Compares the given image against the known error image.
@@ -90,7 +86,7 @@
         // Resize images to a common size for comparison
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const size = 64; // Choose a size
+        const size = img.width; // Use actual image size
         canvas.width = size;
         canvas.height = size;
 
@@ -105,7 +101,7 @@
         errorCanvas.width = size;
         errorCanvas.height = size;
         errorCtx.drawImage(errorImage, 0, 0, size, size);
-        const errorImageData = errorCanvas.toDataURL();
+        const errorImageData = canvas.toDataURL();
         const errorHash = await imageHash(errorImageData);
 
         const difference = hammingDistance(imgHash.hash, errorHash.hash);
@@ -132,12 +128,15 @@
     /**
      * Loads an image from a given URL and returns a Promise.
      * @param {string} url - The URL of the image to load.
+     * @param {number} size - The size to load the image.
      * @returns {Promise<HTMLImageElement>} - A Promise that resolves to the loaded image.
      */
-    function loadImage(url) {
+    function loadImage(url, size = 64) { // Added size parameter, default is 64
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.src = url;
+            img.style.width = `${size}px`;  // Set width and height.
+            img.style.height = `${size}px`;
             img.onload = () => resolve(img);
             img.onerror = reject;
         });
@@ -146,14 +145,16 @@
     /**
      * Generates an SVG data URL for the first letter of the domain.
      * @param {string} domain - The domain name.
+     * @param {number} size - The size of the SVG.
      * @returns {string} - A data URL containing the SVG.
      */
-    function generateFallbackSVG(domain) {
+    function generateFallbackSVG(domain, size = 64) {
         const firstLetter = domain.charAt(0).toUpperCase();
-        const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+        const fontSize = size * 0.7; // Adjust font size relative to image size
+        const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}">
             <style>
                 .letter {
-                    font-size: 70px;
+                    font-size: ${fontSize}px;
                     font-family: sans-serif;
                     fill: #4a5568; /* Gray */
                 }
@@ -173,6 +174,8 @@
         const urlParams = new URLSearchParams(window.location.search);
         const domainParam = urlParams.get('domain');
         const fallbackParam = urlParams.get('fallback');
+        const sizeParam = parseInt(urlParams.get('size'), 10); // Get size from query string
+        const size = isNaN(sizeParam) ? 64 : sizeParam; // Use 64 if size is invalid or not provided
 
         // Clear any previous content
         container.innerHTML = '';
@@ -180,18 +183,13 @@
         if (domainParam) {
             const domain = domainParam.trim();
             // Use query parameter if provided, otherwise, generate SVG
-            const fallbackUrl = fallbackParam || generateFallbackSVG(domain);
-            const favicon = await getFaviconWithGoogle(domain, fallbackUrl);
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'favicon-item';
-            // OMITTED the line that added the domain text.
+            const fallbackUrl = fallbackParam || generateFallbackSVG(domain, size); // Pass size
+            const favicon = await getFaviconWithGoogle(domain, fallbackUrl, size); // Pass size
             if (favicon) {
-                container.appendChild(itemDiv);
-                container.appendChild(favicon);
+                container.appendChild(favicon); // Append image directly
             } else {
                 const errorDiv = document.createElement('div');
                 errorDiv.textContent = `Failed to retrieve favicon for ${domain}`;
-                container.appendChild(itemDiv);
                 container.appendChild(errorDiv);
             }
         } else {
@@ -201,7 +199,7 @@
         }
 
         // Preload the error image.
-        await loadImage('error_favicon.png');
+        await loadImage('error_favicon.png', size); // Pass size
     };
     </script>
 </body>
