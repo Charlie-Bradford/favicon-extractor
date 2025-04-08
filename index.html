@@ -37,7 +37,7 @@
     async function fetchImage(url) {
         try {
             const response = await fetch(url, {
-                //  mode: 'no-cors', // Remove this line or set it to 'cors'
+                mode: 'cors',
             });
             if (!response.ok) {
                 return null;
