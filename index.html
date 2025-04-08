@@ -105,7 +105,7 @@
         errorCanvas.width = size;
         errorCanvas.height = size;
         errorCtx.drawImage(errorImage, 0, 0, size, size);
-        const errorImageData = canvas.toDataURL();
+        const errorImageData = errorCanvas.toDataURL();
         const errorHash = await imageHash(errorImageData);
 
         const difference = hammingDistance(imgHash.hash, errorHash.hash);
