@@ -171,17 +171,15 @@
     window.onload = async function() {
         const container = document.getElementById('favicon-container');
         const urlParams = new URLSearchParams(window.location.search);
+        const domainParam = urlParams.get('domain');
         const fallbackParam = urlParams.get('fallback');
 
         // Clear any previous content
         container.innerHTML = '';
 
-        // Get the domain from the user input or the URL parameter
-        const domainInput = prompt("Please enter a domain (e.g., example.com):", "example.com");
-        if (domainInput) {
-            const domain = domainInput.trim();
-
-             // Use query parameter if provided, otherwise, generate SVG
+        if (domainParam) {
+            const domain = domainParam.trim();
+            // Use query parameter if provided, otherwise, generate SVG
             const fallbackUrl = fallbackParam || generateFallbackSVG(domain);
             const favicon = await getFaviconWithGoogle(domain, fallbackUrl);
             const itemDiv = document.createElement('div');
@@ -196,6 +194,10 @@
                 container.appendChild(itemDiv);
                 container.appendChild(errorDiv);
             }
+        } else {
+            const noDomainDiv = document.createElement('div');
+            noDomainDiv.textContent = "Please provide a domain in the query string.";
+            container.appendChild(noDomainDiv);
         }
 
         // Preload the error image.
