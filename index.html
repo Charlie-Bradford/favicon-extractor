@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Favicon Extractor</title>
+<script src="https://unpkg.com/image-hash"></script>
+<style>
+#favicon-container {
+margin-top: 20px;
+display: flex;
+flex-wrap: wrap;
+gap: 20px;
+}
+.favicon-item {
+display: flex;
+flex-direction: column;
+align-items: center;
+}
+img {
+max-width: 100px;
+max-height: 100px;
+border: 1px solid #ccc;
+border-radius: 4px;
+}
+</style>
+</head>
+<body>
+<div id="favicon-container"></div>
+<script>
+const DEFAULT_FALLBACK_URL = 'www.google.com'; // Start with empty string, will be set dynamically
+
+/**
+* Asynchronously fetches a favicon from Google's favicon service,
+* replacing a specific error image with a fallback.
+*
+* @param {string} domain - The domain name (e.g., "example.com").
+* @param {string} fallbackPath - Path to the fallback image.
+* @returns {Promise<HTMLImageElement|null>} - A Promise that resolves to an Image object
+* or null on error.
+*/
+async function getFaviconWithGoogle(domain, fallbackPath) {
+try {
+// Construct the Google favicon service URL
+const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}`;
+
+// Fetch the favicon
+const response = await fetch(faviconUrl);
+if (!response.ok) {
+throw new Error(`HTTP error! status: ${response.status}`);
+}
+const blob = await response.blob();
+const imageUrl = URL.createObjectURL(blob);
+
+const img = new Image();
+img.src = imageUrl;
+
+await new Promise((resolve, reject) => {
+img.onload = resolve;
+img.onerror = reject;
+});
+
+// Check for the specific error image. We load the error image *once*
+// and keep it in a variable, rather than loading it repeatedly.
+if (await isErrorImage(img)) {
+console.log(`Detected error favicon for ${domain}, using fallback.`);
+return await loadImage(fallbackPath); // Use the function to load.
+}
+return img;
+
+} catch (error) {
+console.error(`Error fetching favicon for ${domain}:`, error);
+return await loadImage(fallbackPath); // Use the function to load.
+}
+}
+
+
+/**
+* Compares the given image against the known error image.
+* @param {HTMLImageElement} img - The image to compare.
+* @returns {Promise<boolean>} - A Promise that resolves to true if the image is the error image, false otherwise.
+*/
+let cachedErrorImage = null; // Cache the error image.
+async function isErrorImage(img) {
+if (!cachedErrorImage) {
+cachedErrorImage = await loadImage('error_favicon.png');
+}
+const errorImage = cachedErrorImage;
+
+// Resize images to a common size for comparison
+const canvas = document.createElement('canvas');
+const ctx = canvas.getContext('2d');
+const size = 64; // Choose a size
+canvas.width = size;
+canvas.height = size;
+
+// Draw the input image onto the canvas, resized
+ctx.drawImage(img, 0, 0, size, size);
+const imgData = canvas.toDataURL();
+const imgHash = await imageHash(imgData);
+
+// Draw the error image onto the canvas, resized
+const errorCanvas = document.createElement('canvas');
+const errorCtx = errorCanvas.getContext('2d');
+errorCanvas.width = size;
+errorCanvas.height = size;
+errorCtx.drawImage(errorImage, 0, 0, size, size);
+const errorImageData = canvas.toDataURL();
+const errorHash = await imageHash(errorImageData);
+
+const difference = hammingDistance(imgHash.hash, errorHash.hash);
+return difference < 5;
+}
+
+/**
+* Calculates the Hamming distance between two binary strings.
+* @param {string} str1 - The first string.
+* @param {string} str2 - The second string.
+* @returns {number} - The Hamming distance between the two strings.
+*/
+function hammingDistance(str1, str2) {
+let distance = 0;
+const len = Math.min(str1.length, str2.length);
+for (let i = 0; i < len; i++) {
+if (str1[i] !== str2[i]) {
+distance++;
+}
+}
+return distance;
+}
+
+/**
+* Loads an image from a given URL and returns a Promise.
+* @param {string} url - The URL of the image to load.
+* @returns {Promise<HTMLImageElement>} - A Promise that resolves to the loaded image.
+*/
+function loadImage(url) {
+return new Promise((resolve, reject) => {
+const img = new Image();
+img.src = url;
+img.onload = () => resolve(img);
+img.onerror = reject;
+});
+}
+
+/**
+* Generates an SVG data URL for the first letter of the domain.
+* @param {string} domain - The domain name.
+* @returns {string} - A data URL containing the SVG.
+*/
+function generateFallbackSVG(domain) {
+const firstLetter = domain.charAt(0).toUpperCase();
+const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<style>
+.letter {
+font-size: 70px;
+font-family: sans-serif;
+fill: #4a5568; /* Gray */
+}
+.bg {
+fill: #f7fafc; /* Light Gray */
+}
+</style>
+<rect class="bg" width="100" height="100" rx="10" />
+<text class="letter" x="50" y="50" dominant-baseline="middle" text-anchor="middle">${firstLetter}</text>
+</svg>`;
+return `data:image/svg+xml;utf8,${encodeURIComponent(svgContent)}`;
+}
+
+
+window.onload = async function() {
+const container = document.getElementById('favicon-container');
+const urlParams = new URLSearchParams(window.location.search);
+const fallbackParam = urlParams.get('fallback');
+
+// Clear any previous content
+container.innerHTML = '';
+
+// Get the domain from the user input or the URL parameter
+const domainInput = prompt("Please enter a domain (e.g., example.com):", "example.com");
+if (domainInput) {
+const domain = domainInput.trim();
+
+// Use query parameter if provided, otherwise, generate SVG
+const fallbackUrl = fallbackParam || generateFallbackSVG(domain);
+const favicon = await getFaviconWithGoogle(domain, fallbackUrl);
+const itemDiv = document.createElement('div');
+itemDiv.className = 'favicon-item';
+itemDiv.textContent = domain;
+if (favicon) {
+container.appendChild(itemDiv);
+container.appendChild(favicon);
+} else {
+const errorDiv = document.createElement('div');
+errorDiv.textContent = `Failed to retrieve favicon for ${domain}`;
+container.appendChild(itemDiv);
+container.appendChild(errorDiv);
+}
+}
+
+// Preload the error image.
+await loadImage('error_favicon.png');
+};
+</script>
+</body>
+</html>
