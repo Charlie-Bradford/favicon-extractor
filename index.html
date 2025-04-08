@@ -28,11 +28,11 @@
         <img id="favicon" src="" alt="Favicon">
     </div>
     <script>
-    const DEFAULT_FALLBACK_URL = ''; // Removed default fallback URL
+    const DEFAULT_FALLBACK_URL = '';
 
     async function isErrorImage(img) {
         try {
-            const response = await fetch('error_favicon.ico'); // Changed to .ico
+            const response = await fetch('error_favicon.ico');
             if (!response.ok) return false;
             const blob = await response.blob();
             const reader = new FileReader();
@@ -48,20 +48,19 @@
             canvas.width = size;
             canvas.height = size;
             ctx.drawImage(img, 0, 0, size, size);
-            try{
+            try {
                 const imgData = canvas.toDataURL();
-            }
-            catch(e){
+            } catch (e) {
                 console.error("toDataURL error", e);
                 return false;
             }
-
 
             const errorCanvas = document.createElement('canvas');
             const errorCtx = errorCanvas.getContext('2d');
             errorCanvas.width = size;
             errorCanvas.height = size;
             const errorImg = new Image;
+            errorImg.crossOrigin = "anonymous";  // Add this line
             errorImg.src = errorDataUrl;
             await new Promise(resolve => errorImg.onload = resolve);
             errorCtx.drawImage(errorImg, 0, 0, size, size);
@@ -70,7 +69,7 @@
             return imgData === errorImageData;
         } catch (error) {
             console.error("Error in isErrorImage:", error);
-            return false; // Treat errors during the check as "not error image"
+            return false;
         }
     }
 
@@ -100,7 +99,7 @@
 
         const urlParams = new URLSearchParams(window.location.search);
         const domain = urlParams.get('domain');
-        const fallbackUrl = urlParams.get('fallback'); // Now gets fallbackUrl from query string
+        const fallbackUrl = urlParams.get('fallback');
         const bgcolor = urlParams.get('bgcolor') || '#ffffff';
         const textcolor = urlParams.get('textcolor') || '#000000';
 
