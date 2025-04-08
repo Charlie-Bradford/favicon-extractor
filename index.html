@@ -31,35 +31,47 @@
     const DEFAULT_FALLBACK_URL = ''; // Removed default fallback URL
 
     async function isErrorImage(img) {
-        const response = await fetch('error_favicon.ico'); // Changed to .ico
-        if (!response.ok) return false;
-        const blob = await response.blob();
-        const reader = new FileReader();
-        const promise = new Promise((resolve) => {
-            reader.onloadend = () => resolve(reader.result);
-        });
-        reader.readAsDataURL(blob);
-        const errorDataUrl = await promise;
+        try {
+            const response = await fetch('error_favicon.ico'); // Changed to .ico
+            if (!response.ok) return false;
+            const blob = await response.blob();
+            const reader = new FileReader();
+            const promise = new Promise((resolve) => {
+                reader.onloadend = () => resolve(reader.result);
+            });
+            reader.readAsDataURL(blob);
+            const errorDataUrl = await promise;
 
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const size = 64;
-        canvas.width = size;
-        canvas.height = size;
-        ctx.drawImage(img, 0, 0, size, size);
-        const imgData = canvas.toDataURL();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const size = 64;
+            canvas.width = size;
+            canvas.height = size;
+            ctx.drawImage(img, 0, 0, size, size);
+            try{
+                const imgData = canvas.toDataURL();
+            }
+            catch(e){
+                console.error("toDataURL error", e);
+                return false;
+            }
 
-        const errorCanvas = document.createElement('canvas');
-        const errorCtx = errorCanvas.getContext('2d');
-        errorCanvas.width = size;
-        errorCanvas.height = size;
-        const errorImg = new Image;
-        errorImg.src = errorDataUrl;
-        await new Promise(resolve => errorImg.onload = resolve);
-        errorCtx.drawImage(errorImg, 0, 0, size, size);
-        const errorImageData = errorCanvas.toDataURL();
 
-        return imgData === errorImageData;
+            const errorCanvas = document.createElement('canvas');
+            const errorCtx = errorCanvas.getContext('2d');
+            errorCanvas.width = size;
+            errorCanvas.height = size;
+            const errorImg = new Image;
+            errorImg.src = errorDataUrl;
+            await new Promise(resolve => errorImg.onload = resolve);
+            errorCtx.drawImage(errorImg, 0, 0, size, size);
+            const errorImageData = errorCanvas.toDataURL();
+
+            return imgData === errorImageData;
+        } catch (error) {
+            console.error("Error in isErrorImage:", error);
+            return false; // Treat errors during the check as "not error image"
+        }
     }
 
     function generateFallbackSVG(domain, size = 64, bgcolor = '#ffffff', textcolor = '#000000') {
