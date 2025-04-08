@@ -13,6 +13,9 @@
         min-height: 100vh;
       }
       img {
+        /* max-width and max-height are set by the size parameter, or default */
+      }
+      .favicon-fallback {
         border: 1px solid #ccc;
         border-radius: 4px;
       }
@@ -60,13 +63,16 @@
             if (await isErrorImage(img)) {
                 console.log(`Detected error favicon for ${domain}, using fallback.`);
                 const fallbackImage = await loadImage(fallbackPath, size);
+                fallbackImage.classList.add('favicon-fallback'); // Add class
                 return fallbackImage;
             }
             return img;
 
         } catch (error) {
             console.error(`Error fetching favicon for ${domain}:`, error);
-            return await loadImage(fallbackPath, size);
+            const fallbackImage = await loadImage(fallbackPath, size);
+            fallbackImage.classList.add('favicon-fallback'); // Add class
+            return fallbackImage;
         }
     }
 
@@ -173,7 +179,7 @@
     function generateFallbackSVG(domain, size = 64) {
         const firstLetter = domain.charAt(0).toUpperCase();
         const fontSize = size * 0.7;
-        const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}">
+        const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}" class="favicon-fallback">
             <style>
                 .letter {
                     font-size: ${fontSize}px;
