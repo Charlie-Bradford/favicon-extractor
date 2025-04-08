@@ -1,83 +1,214 @@
-import requests
-from io import BytesIO
-from PIL import Image, ImageChops
-import imagehash  # For perceptual hashing (optional, but recommended)
-import hashlib
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Favicon Extractor</title>
+    <script src="https://unpkg.com/image-hash"></script>
+    <style>
+      #favicon-container {
+        margin-top: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        justify-content: center; /* Center the content */
+      }
+      .favicon-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 20px; /* Add some margin below each item */
+      }
+      img {
+        max-width: 100px;
+        max-height: 100px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      #message-box {
+        position: fixed; /* Fix the position */
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: rgba(255, 255, 255, 0.9);
+        padding: 10px 20px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        z-index: 10;
+        text-align: center;
+        display: none; /* Initially hidden */
+      }
+      #message-box.show {
+        display: block; /* Show the message box */
+      }
+    </style>
+</head>
+<body>
+    <div id="favicon-container"></div>
+    <div id="message-box"></div>
 
-def get_favicon_with_duckduckgo(domain, fallback_path="fallback.png"):
-    """
-    Fetches a favicon from DuckDuckGo's favicon service, replacing a specific
-    error image with a fallback.
+    <script>
+    const DEFAULT_FALLBACK_URL = 'https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.sharecuts.co/&size=16'; // Default Fallback image URL
 
-    Args:
-        domain (str): The domain name (e.g., "example.com").
-        fallback_path (str): Path to the fallback image.
+    /**
+     * Asynchronously fetches a favicon from Google's favicon service,
+     * replacing a specific error image with a fallback.
+     *
+     * @param {string} domain - The domain name (e.g., "example.com").
+     * @param {string} fallbackPath - Path to the fallback image.
+     * @returns {Promise<HTMLImageElement|null>} - A Promise that resolves to an Image object
+     * or null on error.
+     */
+    async function getFaviconWithGoogle(domain, fallbackPath = DEFAULT_FALLBACK_URL) {
+        try {
+            // Construct the Google favicon service URL
+            const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}`;
 
-    Returns:
-        Image.Image: The favicon or the fallback image as a PIL Image object.
-                      Returns None on critical error.
-    """
-    try:
-        # Construct the DuckDuckGo favicon service URL
-        favicon_url = f"https://icons.duckduckgo.com/ip3/{domain}.ico"
-        response = requests.get(favicon_url, stream=True, timeout=5)
-        response.raise_for_status()
+            // Fetch the favicon
+            const response = await fetch(faviconUrl);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const blob = await response.blob();
+            const imageUrl = URL.createObjectURL(blob);
 
-        favicon_image = Image.open(BytesIO(response.content))
+            const img = new Image();
+            img.src = imageUrl;
 
-        # Check for the specific error image
-        if is_error_image(favicon_image):
-            print(f"Detected error favicon for {domain}, using fallback.")
-            return Image.open(fallback_path)
-        return favicon_image
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+            });
 
-    except (requests.exceptions.RequestException, IOError) as e:
-        print(f"Error fetching favicon for {domain}: {e}, using fallback.")
-        return Image.open(fallback_path)
-    except Exception as e:
-        print(f"Critical error processing favicon for {domain}: {e}")
-        return None
+            // Check for the specific error image.  We load the error image *once*
+            // and keep it in a variable, rather than loading it repeatedly.
+            if (await isErrorImage(img)) {
+                showMessage(`Detected error favicon for ${domain}, using fallback.`);
+                return await loadImage(fallbackPath); // Use the function to load.
+            }
+            return img;
 
-
-
-def is_error_image(img):
-    """
-    Compares the given image against the known error image.
-
-    Args:
-        img (Image.Image): The image to compare.
-
-    Returns:
-        bool: True if the image is the error image, False otherwise.
-    """
-    # Load your specific error image
-    error_img = Image.open("error_favicon.png")
-
-    # Resize images to a common size
-    img = img.resize(error_img.size)
-
-    # Calculate perceptual hash
-    img_hash = imagehash.average_hash(img)
-    error_hash = imagehash.average_hash(error_img)
-
-    # Compare the hashes
-    if img_hash - error_hash < 5:
-        return True
-    return False
+        } catch (error) {
+            console.error(`Error fetching favicon for ${domain}:`, error);
+            showMessage(`Error fetching favicon for ${domain}: ${error}`);
+            return await loadImage(fallbackPath); // Use the function to load.
+        }
+    }
 
 
+    /**
+     * Compares the given image against the known error image.
+     * @param {HTMLImageElement} img
+     * @returns {Promise<boolean>}
+     */
+    let cachedErrorImage = null; // Cache the error image.
+    async function isErrorImage(img) {
+        if (!cachedErrorImage) {
+          cachedErrorImage = await loadImage('error_favicon.png');
+        }
+        const errorImage = cachedErrorImage;
 
-if __name__ == "__main__":
-    test_domains = [
-        "example.com",
-        "google.com",
-        "invalid-domain.com",  # Test with a domain that might not have a clear favicon
-    ]
 
-    for domain in test_domains:
-        favicon = get_favicon_with_duckduckgo(domain)
-        if favicon:
-            print(f"Successfully retrieved favicon for {domain}")
-            favicon.show()
-        else:
-            print(f"Failed to get favicon for {domain}")
+        // Resize images to a common size for comparison
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const size = 64; // Choose a size
+        canvas.width = size;
+        canvas.height = size;
+
+        // Draw the input image onto the canvas, resized
+        ctx.drawImage(img, 0, 0, size, size);
+        const imgData = canvas.toDataURL();
+        const imgHash = await imageHash(imgData);
+
+        // Draw the error image onto the canvas, resized
+        const errorCanvas = document.createElement('canvas');
+        const errorCtx = errorCanvas.getContext('2d');
+        errorCanvas.width = size;
+        errorCanvas.height = size;
+        errorCtx.drawImage(errorImage, 0, 0, size, size);
+        const errorImageData = errorCanvas.toDataURL();
+        const errorHash = await imageHash(errorImageData);
+
+        const difference = hammingDistance(imgHash.hash, errorHash.hash);
+        return difference < 5;
+    }
+
+    /**
+     * Calculates the Hamming distance between two binary strings.
+     * @param {string} str1
+     * @param {string} str2
+     * @returns {number}
+     */
+    function hammingDistance(str1, str2) {
+        let distance = 0;
+        const len = Math.min(str1.length, str2.length);
+        for (let i = 0; i < len; i++) {
+            if (str1[i] !== str2[i]) {
+                distance++;
+            }
+        }
+        return distance;
+    }
+
+    /**
+     * Loads an image from a given URL and returns a Promise.
+     * @param {string} url
+     * @returns {Promise<HTMLImageElement>}
+     */
+    function loadImage(url) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.src = url;
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+        });
+    }
+
+    /**
+     * Displays a message to the user.
+     * @param {string} message - The message to display.
+     */
+    function showMessage(message) {
+        const messageBox = document.getElementById('message-box');
+        messageBox.textContent = message;
+        messageBox.classList.add('show');
+        // Hide the message after a few seconds
+        setTimeout(() => {
+            messageBox.classList.remove('show');
+        }, 3000);
+    }
+
+
+    window.onload = async function() {
+        const container = document.getElementById('favicon-container');
+        // Get the query parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const domain = urlParams.get('domain');
+        const fallbackUrl = urlParams.get('fallback') || DEFAULT_FALLBACK_URL;
+
+        // Preload the error image.
+        await loadImage('error_favicon.png');
+
+        if (!domain) {
+            showMessage('Please provide a domain in the query string.');
+            return;
+        }
+
+        const favicon = await getFaviconWithGoogle(domain, fallbackUrl);
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'favicon-item';
+        itemDiv.textContent = domain;
+        if (favicon) {
+            container.appendChild(itemDiv);
+            container.appendChild(favicon);
+        } else {
+            const errorDiv = document.createElement('div');
+            errorDiv.textContent = `Failed to retrieve favicon for ${domain}`;
+            container.appendChild(itemDiv);
+            container.appendChild(errorDiv);
+        }
+    };
+    </script>
+</body>
+</html>
