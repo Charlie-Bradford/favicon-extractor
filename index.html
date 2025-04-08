@@ -44,7 +44,11 @@
             // Fetch the favicon
             const response = await fetch(faviconUrl);
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                //  Don't try to detect a specific error image, just use the fallback.
+                console.log(`HTTP error! status: ${response.status} for ${domain}, using fallback.`);
+                const fallbackImage = await loadImage(fallbackPath, size);
+                fallbackImage.classList.add('favicon-fallback'); // Add class
+                return fallbackImage;
             }
             const blob = await response.blob();
             const imageUrl = URL.createObjectURL(blob);
@@ -56,16 +60,8 @@
 
             await new Promise((resolve, reject) => {
                 img.onload = resolve;
-                img.onerror = reject;
+                img.onerror = reject; // Reject on error loading the image
             });
-
-            // Check for the specific error image.
-            if (await isErrorImage(img)) {
-                console.log(`Detected error favicon for ${domain}, using fallback.`);
-                const fallbackImage = await loadImage(fallbackPath, size);
-                fallbackImage.classList.add('favicon-fallback'); // Add class
-                return fallbackImage;
-            }
             return img;
 
         } catch (error) {
@@ -76,59 +72,7 @@
         }
     }
 
-    /**
-     * Compares the given image against the known error image.
-     * @param {HTMLImageElement} img - The image to compare.
-     * @returns {Promise<boolean>} - A Promise that resolves to true if the image is the error image, false otherwise.
-     */
-    let cachedErrorImage = null;
-    async function isErrorImage(img) {
-        if (!cachedErrorImage) {
-            cachedErrorImage = await loadImage('error_favicon.png');
-        }
-        const errorImage = cachedErrorImage;
 
-        // Resize images to a common size for comparison
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const size = img.width;
-        canvas.width = size;
-        canvas.height = size;
-
-        // Draw the input image onto the canvas, resized
-        ctx.drawImage(img, 0, 0, size, size);
-        const imgData = canvas.toDataURL();
-        const imgHash = await imageHash(imgData);
-
-        // Draw the error image onto the canvas, resized
-        const errorCanvas = document.createElement('canvas');
-        const errorCtx = errorCanvas.getContext('2d');
-        errorCanvas.width = size;
-        errorCanvas.height = size;
-        errorCtx.drawImage(errorImage, 0, 0, size, size);
-        const errorImageData = canvas.toDataURL();
-        const errorHash = await imageHash(errorImageData);
-
-        const difference = hammingDistance(imgHash.hash, errorHash.hash);
-        return difference < 5;
-    }
-
-    /**
-     * Calculates the Hamming distance between two binary strings.
-     * @param {string} str1 - The first string.
-     * @param {string} str2 - The second string.
-     * @returns {number} - The Hamming distance between the two strings.
-     */
-    function hammingDistance(str1, str2) {
-        let distance = 0;
-        const len = Math.min(str1.length, str2.length);
-        for (let i = 0; i < len; i++) {
-            if (str1[i] !== str2[i]) {
-                distance++;
-            }
-        }
-        return distance;
-    }
 
     /**
      * Loads an image from a given URL and returns a Promise.
@@ -143,7 +87,7 @@
             img.style.width = `${size}px`;
             img.style.height = `${size}px`;
             img.onload = () => resolve(img);
-            img.onerror = reject;
+            img.onerror = reject; // Reject if the image fails to load
         });
     }
 
@@ -235,7 +179,7 @@
         }
 
         // Preload the error image.
-        await loadImage('error_favicon.png', size);
+        // await loadImage('error_favicon.png', size);  // Removed preloading of error image
     };
     </script>
 </body>
