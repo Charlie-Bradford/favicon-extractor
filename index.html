@@ -9,47 +9,19 @@
       #favicon-container {
         margin-top: 20px;
         display: flex;
-        flex-wrap: wrap;
-        gap: 20px;
         justify-content: center; /* Center the content */
-      }
-      .favicon-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        margin-bottom: 20px; /* Add some margin below each item */
       }
       img {
         max-width: 100px;
         max-height: 100px;
-        border: 1px solid #ccc;
         border-radius: 4px;
-      }
-      #message-box {
-        position: fixed; /* Fix the position */
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background-color: rgba(255, 255, 255, 0.9);
-        padding: 10px 20px;
-        border: 1px solid #ccc;
-        border-radius: 5px;
-        z-index: 10;
-        text-align: center;
-        display: none; /* Initially hidden */
-      }
-      #message-box.show {
-        display: block; /* Show the message box */
       }
     </style>
 </head>
 <body>
     <div id="favicon-container"></div>
-    <div id="message-box"></div>
 
     <script>
-    const DEFAULT_FALLBACK_URL = 'https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.sharecuts.co/&size=16'; // Default Fallback image URL
-
     /**
      * Asynchronously fetches a favicon from Google's favicon service,
      * replacing a specific error image with a fallback.
@@ -59,7 +31,7 @@
      * @returns {Promise<HTMLImageElement|null>} - A Promise that resolves to an Image object
      * or null on error.
      */
-    async function getFaviconWithGoogle(domain, fallbackPath = DEFAULT_FALLBACK_URL) {
+    async function getFaviconWithGoogle(domain) {
         try {
             // Construct the Google favicon service URL
             const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}`;
@@ -67,7 +39,7 @@
             // Fetch the favicon
             const response = await fetch(faviconUrl);
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                return null; // Return null on error, don't throw
             }
             const blob = await response.blob();
             const imageUrl = URL.createObjectURL(blob);
@@ -80,18 +52,15 @@
                 img.onerror = reject;
             });
 
-            // Check for the specific error image.  We load the error image *once*
-            // and keep it in a variable, rather than loading it repeatedly.
+            // Check for the specific error image.
             if (await isErrorImage(img)) {
-                showMessage(`Detected error favicon for ${domain}, using fallback.`);
-                return await loadImage(fallbackPath); // Use the function to load.
+                return null; // Return null on error image
             }
             return img;
 
         } catch (error) {
             console.error(`Error fetching favicon for ${domain}:`, error);
-            showMessage(`Error fetching favicon for ${domain}: ${error}`);
-            return await loadImage(fallbackPath); // Use the function to load.
+            return null; // Return null on fetch error
         }
     }
 
@@ -166,48 +135,73 @@
     }
 
     /**
-     * Displays a message to the user.
-     * @param {string} message - The message to display.
+     * Generates an SVG data URL for the first letter of the domain.
+     * @param {string} domain - The domain name.
+     * @param {number} size - The size of the SVG.
+     * @param {string} bgcolor - The background color of the SVG.
+     * @param {string} textcolor - The text color of the SVG.
+     * @returns {string} - A data URL containing the SVG.
      */
-    function showMessage(message) {
-        const messageBox = document.getElementById('message-box');
-        messageBox.textContent = message;
-        messageBox.classList.add('show');
-        // Hide the message after a few seconds
-        setTimeout(() => {
-            messageBox.classList.remove('show');
-        }, 3000);
+    function generateFallbackSVG(domain, size = 64, bgcolor = '#f7fafc', textcolor = '#4a5568') {
+        const firstLetter = domain.charAt(0).toUpperCase();
+        const fontSize = size * 0.7;
+        const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}">
+            <style>
+                .letter {
+                    font-size: ${fontSize}px;
+                    font-family: sans-serif;
+                    fill: ${textcolor};
+                }
+                .bg {
+                    fill: ${bgcolor};
+                }
+            </style>
+            <rect class="bg" width="100" height="100" rx="10" fill="${bgcolor}"/>
+            <text class="letter" x="50" y="55" dominant-baseline="middle" text-anchor="middle" fill="${textcolor}">${firstLetter}</text>
+        </svg>`;
+        return `data:image/svg+xml;utf8,${encodeURIComponent(svgContent)}`;
     }
 
 
     window.onload = async function() {
         const container = document.getElementById('favicon-container');
+        container.innerHTML = ''; // Clear container
+
         // Get the query parameters
         const urlParams = new URLSearchParams(window.location.search);
         const domain = urlParams.get('domain');
-        const fallbackUrl = urlParams.get('fallback') || DEFAULT_FALLBACK_URL;
-
-        // Preload the error image.
-        await loadImage('error_favicon.png');
+        const fallbackUrl = urlParams.get('fallback');
+        const bgcolor = urlParams.get('bgcolor');
+        const textcolor = urlParams.get('textcolor');
 
         if (!domain) {
-            showMessage('Please provide a domain in the query string.');
-            return;
+            return; // Don't do anything if there's no domain
         }
 
-        const favicon = await getFaviconWithGoogle(domain, fallbackUrl);
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'favicon-item';
-        itemDiv.textContent = domain;
+        // 1. Try to get the favicon
+        const favicon = await getFaviconWithGoogle(domain);
         if (favicon) {
-            container.appendChild(itemDiv);
             container.appendChild(favicon);
-        } else {
-            const errorDiv = document.createElement('div');
-            errorDiv.textContent = `Failed to retrieve favicon for ${domain}`;
-            container.appendChild(itemDiv);
-            container.appendChild(errorDiv);
+            return; // If we get the favicon, we're done.
         }
+
+        // 2. If no favicon, try to use the fallback URL
+        if (fallbackUrl) {
+            try {
+                const fallbackImage = await loadImage(fallbackUrl);
+                container.appendChild(fallbackImage);
+                return; // If we get the fallback image, we're done.
+            } catch (e) {
+                console.error("Error loading fallback image:", e);
+                //  If the fallback image fails to load, we fall through to the SVG
+            }
+        }
+
+        // 3. If no favicon and no/invalid fallback, generate the SVG
+        const svgDataUrl = generateFallbackSVG(domain, 64, bgcolor, textcolor);
+        const svgImg = new Image();
+        svgImg.src = svgDataUrl;
+        container.appendChild(svgImg);
     };
     </script>
 </body>
