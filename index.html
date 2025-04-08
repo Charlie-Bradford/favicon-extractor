@@ -37,7 +37,7 @@
     async function fetchImage(url) {
         try {
             const response = await fetch(url, {
-                mode: 'no-cors', // Explicitly set the mode to 'no-cors'
+                //  mode: 'no-cors', // Remove this line or set it to 'cors'
             });
             if (!response.ok) {
                 return null;
@@ -105,7 +105,7 @@
         const defaultBgColor = '#ffffff';  // White
         const defaultTextColor = '#000000'; // Black
 
-         if (!bgcolor) {
+        if (!bgcolor) {
             bgcolor = defaultBgColor;
         }
         if (!textcolor) {
