@@ -36,9 +36,8 @@
      */
     async function fetchImage(url) {
         try {
-            const response = await fetch(url, {
-                mode: 'cors',
-            });
+            //Remove mode: 'cors',
+            const response = await fetch(url);
             if (!response.ok) {
                 return null;
             }
@@ -105,10 +104,10 @@
         const defaultBgColor = '#ffffff';  // White
         const defaultTextColor = '#000000'; // Black
 
-        if (bgcolor === null || bgcolor === undefined || bgcolor === "") {
+        if (!bgcolor) {
             bgcolor = defaultBgColor;
         }
-        if (textcolor === null || textcolor === undefined || textcolor === "") {
+        if (!textcolor) {
             textcolor = defaultTextColor;
         }
 
