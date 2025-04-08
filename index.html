@@ -158,12 +158,14 @@
             let hostname = urlObj.hostname;
             // Remove "www." if present
             hostname = hostname.replace(/^www\./, '');
-            // Split by dots and get the last two parts (e.g., "google.com", "co.uk")
+             // Split by dots
             const parts = hostname.split('.');
-            if (parts.length >= 2) {
-                return parts.slice(-2).join('.');
+            let mainDomain = hostname;
+             if (parts.length > 2) {
+                // Get the second-to-last and last part
+                mainDomain = parts.slice(-2).join('.');
             }
-            return ''; // Return empty string if extraction fails
+            return mainDomain; // Return the calculated main domain
         } catch (e) {
             console.error("Error extracting domain:", e);
             return '';
