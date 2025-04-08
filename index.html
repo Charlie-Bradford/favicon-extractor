@@ -110,7 +110,7 @@
             return;
         }
 
-        const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}`;
+        const faviconUrl = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
         faviconImg.onload = async () => {
             if (await isErrorImage(faviconImg)) {
                 faviconImg.onerror = null;
