@@ -174,9 +174,11 @@
      * Generates an SVG data URL for the first letter of the domain.
      * @param {string} domain - The domain name.
      * @param {number} size - The size of the SVG.
+     * @param {string} bgcolor - The background color of the SVG.
+     * @param {string} textcolor - The text color of the SVG.
      * @returns {string} - A data URL containing the SVG.
      */
-    function generateFallbackSVG(domain, size = 64) {
+    function generateFallbackSVG(domain, size = 64, bgcolor = '#f7fafc', textcolor = '#4a5568') {
         const firstLetter = domain.charAt(0).toUpperCase();
         const fontSize = size * 0.7;
         const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}" class="favicon-fallback">
@@ -184,10 +186,10 @@
                 .letter {
                     font-size: ${fontSize}px;
                     font-family: sans-serif;
-                    fill: #4a5568;
+                    fill: ${textcolor};
                 }
                 .bg {
-                    fill: #f7fafc;
+                    fill: ${bgcolor};
                 }
             </style>
             <rect class="bg" width="100" height="100" rx="10" />
@@ -203,14 +205,19 @@
         const domainParam = urlParams.get('domain');
         const fallbackParam = urlParams.get('fallback');
         const sizeParam = parseInt(urlParams.get('size'), 10);
+        const bgcolorParam = urlParams.get('bgcolor');
+        const textcolorParam = urlParams.get('textcolor');
+
         const size = isNaN(sizeParam) ? 64 : sizeParam;
+        const bgcolor = bgcolorParam || '#f7fafc'; // Default bgcolor
+        const textcolor = textcolorParam || '#4a5568'; // Default textcolor
 
         // Clear any previous content
         container.innerHTML = '';
 
         if (domainParam) {
             const domain = extractMainDomain(domainParam); // Extract the main domain
-            const fallbackUrl = fallbackParam || generateFallbackSVG(domain, size);
+            const fallbackUrl = fallbackParam || generateFallbackSVG(domain, size, bgcolor, textcolor);
             const favicon = await getFaviconWithGoogle(domain, fallbackUrl, size);
             if (favicon) {
                 container.appendChild(favicon);
