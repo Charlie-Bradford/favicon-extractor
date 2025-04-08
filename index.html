@@ -28,7 +28,7 @@
         <img id="favicon" src="" alt="Favicon">
     </div>
     <script>
-    const DEFAULT_FALLBACK_URL = 'https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.sharecuts.co/&size=16';
+    const DEFAULT_FALLBACK_URL = '';
 
     async function isErrorImage(img) {
         const response = await fetch('error_favicon.ico');
@@ -47,7 +47,7 @@
         canvas.width = size;
         canvas.height = size;
         ctx.drawImage(img, 0, 0, size, size);
-        const imgData = canvas.toDataURL();
+        const imgData = ctx.getImageData(0, 0, size, size).data;
 
         const errorCanvas = document.createElement('canvas');
         const errorCtx = errorCanvas.getContext('2d');
@@ -57,9 +57,18 @@
         errorImg.src = errorDataUrl;
         await new Promise(resolve => errorImg.onload = resolve);
         errorCtx.drawImage(errorImg, 0, 0, size, size);
-        const errorImageData = errorCanvas.toDataURL();
+        const errorImageData = errorCtx.getImageData(0, 0, size, size).data;
 
-        return imgData === errorImageData;
+        // Compare pixel data
+        if (imgData.length !== errorImageData.length) {
+            return false;
+        }
+        for (let i = 0; i < imgData.length; i++) {
+            if (imgData[i] !== errorImageData[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     function generateFallbackSVG(domain, size = 64, bgcolor = '#ffffff', textcolor = '#000000') {
@@ -88,7 +97,7 @@
 
         const urlParams = new URLSearchParams(window.location.search);
         const domain = urlParams.get('domain');
-        const fallbackUrl = urlParams.get('fallback') || DEFAULT_FALLBACK_URL;
+        const fallbackUrl = urlParams.get('fallback');
         const bgcolor = urlParams.get('bgcolor') || '#ffffff';
         const textcolor = urlParams.get('textcolor') || '#000000';
 
