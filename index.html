@@ -48,8 +48,9 @@
             canvas.width = size;
             canvas.height = size;
             ctx.drawImage(img, 0, 0, size, size);
+            let imgData;
             try {
-                const imgData = canvas.toDataURL();
+                imgData = canvas.toDataURL();
             } catch (e) {
                 console.error("toDataURL error", e);
                 return false;
@@ -59,8 +60,8 @@
             const errorCtx = errorCanvas.getContext('2d');
             errorCanvas.width = size;
             errorCanvas.height = size;
-            const errorImg = new Image;
-            errorImg.crossOrigin = "anonymous";  // Add this line
+            const errorImg = new Image();
+            errorImg.crossOrigin = "anonymous";  // Add this line: Load error image with CORS
             errorImg.src = errorDataUrl;
             await new Promise(resolve => errorImg.onload = resolve);
             errorCtx.drawImage(errorImg, 0, 0, size, size);
