@@ -28,7 +28,7 @@
 
     <script>
     /**
-     * Asynchronously fetches a favicon from a URL, with CORS handling.
+     * Asynchronously fetches an image from a URL, with CORS handling.
      *
      * @param {string} url - The URL to fetch.
      * @returns {Promise<HTMLImageElement|null>} - A Promise that resolves to an Image object or null on error.
@@ -56,23 +56,7 @@
         }
     }
 
-    /**
-     * Asynchronously fetches a favicon from DuckDuckGo.
-     *
-     * @param {string} domain - The domain name (e.g., "example.com").
-     * @returns {Promise<HTMLImageElement|null>} - A Promise that resolves to an Image object
-     * or null on error.
-     */
-    async function getFaviconWithDuckDuckGo(domain) {
-        try {
-            // Construct the DuckDuckGo favicon service URL
-            const faviconUrl = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
-            return await fetchImage(faviconUrl); // Use the fetchImage function
-        } catch (error) {
-            console.error(`Error fetching favicon for ${domain}:`, error);
-            return null;
-        }
-    }
+
 
     /**
      * Generates an SVG data URL for the first letter of the domain.
@@ -130,14 +114,15 @@
             return; // Don't do anything if there's no domain
         }
 
-        // 1. Try to get the favicon
-        const favicon = await getFaviconWithDuckDuckGo(domain);
-        if (favicon) {
-            container.appendChild(favicon);
-            return; // If we get the favicon, we're done.
+        // 1. Try to get the image from the provided URL
+        let faviconUrl = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+        const fetchedImage = await fetchImage(faviconUrl);
+        if (fetchedImage) {
+            container.appendChild(fetchedImage);
+            return; // If we get the image, we're done.
         }
 
-        // 2. If no favicon, try to use the fallback URL
+        // 2. If no image, try to use the fallback URL
         if (fallbackUrl) {
             const fallbackImage = await fetchImage(fallbackUrl); // Use fetchImage
             if (fallbackImage) {
@@ -147,7 +132,7 @@
             // If the fallback image fails to load, we fall through to the SVG
         }
 
-        // 3. If no favicon and no/invalid fallback, generate the SVG
+        // 3. If no image and no/invalid fallback, generate the SVG
         const svgDataUrl = generateFallbackSVG(domain, 64, bgcolor, textcolor);
         const svgImg = new Image();
         svgImg.src = svgDataUrl;
