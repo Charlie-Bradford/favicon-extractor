@@ -30,45 +30,23 @@
     <script>
     const DEFAULT_FALLBACK_URL = '';
 
-    async function isErrorImage(img) {
-        const response = await fetch('error_favicon.ico');
-        if (!response.ok) return false;
-        const blob = await response.blob();
-        const reader = new FileReader();
-        const promise = new Promise((resolve) => {
-            reader.onloadend = () => resolve(reader.result);
-        });
-        reader.readAsDataURL(blob);
-        const errorDataUrl = await promise;
-
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const size = 64;
-        canvas.width = size;
-        canvas.height = size;
-        ctx.drawImage(img, 0, 0, size, size);
-        const imgData = ctx.getImageData(0, 0, size, size).data;
-
-        const errorCanvas = document.createElement('canvas');
-        const errorCtx = errorCanvas.getContext('2d');
-        errorCanvas.width = size;
-        errorCanvas.height = size;
-        const errorImg = new Image;
-        errorImg.src = errorDataUrl;
-        await new Promise(resolve => errorImg.onload = resolve);
-        errorCtx.drawImage(errorImg, 0, 0, size, size);
-        const errorImageData = errorCtx.getImageData(0, 0, size, size).data;
-
-        // Compare pixel data
-        if (imgData.length !== errorImageData.length) {
-            return false;
+    async function checkFavicon(url) {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          // Check for 404 or other error status codes
+          if (response.status === 404) {
+            return false; // Indicate favicon not found
+          } else {
+             console.error(`Error fetching favicon: ${response.status} - ${response.statusText}`);
+            return true; //treat other errors as valid
+          }
         }
-        for (let i = 0; i < imgData.length; i++) {
-            if (imgData[i] !== errorImageData[i]) {
-                return false;
-            }
-        }
-        return true;
+        return true; // Favicon found
+      } catch (error) {
+        console.error("Error fetching favicon:", error);
+        return false; // Treat network errors as favicon not found
+      }
     }
 
     function generateFallbackSVG(domain, size = 64, bgcolor = '#ffffff', textcolor = '#000000') {
@@ -108,23 +86,26 @@
         }
 
         const faviconUrl = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
-        faviconImg.onload = async () => {
-            if (await isErrorImage(faviconImg)) {
-                faviconImg.onerror = null;
+        const faviconExists = await checkFavicon(faviconUrl);
+
+        if (faviconExists) {
+            faviconImg.src = faviconUrl;
+             faviconImg.onerror = () => {
                 if (fallbackUrl) {
                     faviconImg.src = fallbackUrl;
                 } else {
                     const svgDataUrl = generateFallbackSVG(domain, 64, bgcolor, textcolor);
                     faviconImg.src = svgDataUrl;
                 }
+            };
+        } else {
+            if (fallbackUrl) {
+                faviconImg.src = fallbackUrl;
+            } else {
+                const svgDataUrl = generateFallbackSVG(domain, 64, bgcolor, textcolor);
+                faviconImg.src = svgDataUrl;
             }
-        };
-
-        faviconImg.onerror = () => {
-            const svgDataUrl = generateFallbackSVG(domain, 64, bgcolor, textcolor);
-            faviconImg.src = svgDataUrl;
-        };
-        faviconImg.src = faviconUrl;
+        }
     };
     </script>
 </body>
