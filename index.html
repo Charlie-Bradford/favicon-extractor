@@ -37,7 +37,7 @@
     async function getFaviconWithGoogle(domain) {
         try {
             // Construct the Google favicon service URL
-            const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}`;
+            const faviconUrl = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
 
             // Fetch the favicon
             const response = await fetch(faviconUrl);
@@ -72,7 +72,7 @@
      * @param {string} textcolor - The text color of the SVG.
      * @returns {string} - A data URL containing the SVG.
      */
-    function generateFallbackSVG(domain, size = 64, bgcolor = '#f7fafc', textcolor = '#4a5568') {
+    function generateFallbackSVG(domain, size = 64, bgcolor = '#ffffff', textcolor = '#000000') {
         const firstLetter = domain.charAt(0).toUpperCase();
         const fontSize = size * 0.7;
         const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}">
@@ -101,8 +101,20 @@
         const urlParams = new URLSearchParams(window.location.search);
         const domain = urlParams.get('domain');
         const fallbackUrl = urlParams.get('fallback');
-        const bgcolor = urlParams.get('bgcolor');
-        const textcolor = urlParams.get('textcolor');
+        let bgcolor = urlParams.get('bgcolor');
+        let textcolor = urlParams.get('textcolor');
+
+        // Set default colors, and only override if query parameters are provided.
+        const defaultBgColor = '#ffffff';  // White
+        const defaultTextColor = '#000000'; // Black
+
+        if (!bgcolor) {
+            bgcolor = defaultBgColor;
+        }
+        if (!textcolor) {
+            textcolor = defaultTextColor;
+        }
+
 
         if (!domain) {
             return; // Don't do anything if there's no domain
